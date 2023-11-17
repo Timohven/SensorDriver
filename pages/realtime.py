@@ -1,8 +1,9 @@
 import dash
-from dash import Dash, html, dcc, callback, Output, Input, State
+from dash import html, dcc, callback, Output, Input, State
 import dash_bootstrap_components as dbc
 from dash.exceptions import PreventUpdate
-from scanner import connect, getInfo, getXZIExtended, makeFig, makeFigInten, updateFif3D, saveToFile, loadFromFile
+from scanner import (connect, getInfo, getXZIExtended, transformData,
+                     makeFig, makeFigInten, updateFif3D, saveToFile, loadFromFile)
 from ctypes import *
 import numpy as np
 import plotly.graph_objects as go
@@ -44,18 +45,18 @@ layout = html.Div([
                     html.Br(),
                     html.Button('Connect scanner', id='connect'),
                     html.Br(),
-                    html.Button('Start scanning', id='start'),
+                    html.Button('Start  scanning', id='start'),
                     html.Br(),
-                    html.Button('Pause scanning', id='pause'),
+                    html.Button('Pause  scanning', id='pause'),
                     html.Br(),
-                    html.Button('Stop scanning', id='stop'),
+                    html.Button('Stop   scanning', id='stop'),
                 ]),
                 dbc.Col([
                     html.H4('save/load'),
                     html.Br(),
-                    html.Button('Save to file', id='save'),
+                    html.Button('Save  to  file', id='save'),
                     html.Br(),
-                    html.Button('Load from RAM', id='load'),
+                    html.Button('Load  from RAM', id='load'),
                     html.Br(),
                     html.Button('Load from file', id='loadf'),
                 ]),
@@ -74,31 +75,6 @@ layout = html.Div([
     dcc.Interval('interval', interval=INTERVAL, n_intervals=0, max_intervals=0),
     dcc.Store(id='zoomedRegion')
 ])
-
-
-def clearingZeros():
-    pass
-
-
-def transformData(bufX, bufZ, bufIntensity):
-    X = np.array(bufX)
-    Z = np.array(bufZ)
-    I = np.array(bufIntensity)
-
-    #arrX = X[np.logical_and(X != 0, Z != 0, I != 0)]
-    arrX = X[(X != 0) & (Z != 0) & (I != 0)]
-    # print(f'len X: {len(arrX)}, X: {arrX[0:10]}')
-    # arrZ = Z[np.logical_and(X != 0, Z != 0, I != 0)]
-    arrZ = Z[(X != 0) & (Z != 0) & (I != 0)]
-    # print(f'len Z: {len(arrZ)}, Z: {arrZ[0:10]}')
-    # arrI = I[np.logical_and(X != 0, Z != 0, I != 0)]
-    arrI = I[(X != 0) & (Z != 0) & (I != 0)]
-    # print(f'len I: {len(arrI)}, I: {arrI[0:10]}')
-    arr = np.array([arrX, arrZ, arrI])
-    # print(arr.shape)
-    # saveToFile(np.hstack([arrX, arrZ, arrI]).reshape(-1))
-
-    return arr
 
 
 @callback(
@@ -126,13 +102,13 @@ def update_intervals(n_intervals, data):
     #print(f'x0: {data["xaxis.range[0]"]:.2f}, x1: {data["xaxis.range[1]"]:.2f}, y0: {data["yaxis.range[0]"]:.2f}, y1: {data["yaxis.range[1]"]:.2f}')
     #print(f'the countdown is: {n_intervals}')
     dataLength, bufX, bufZ, bufIntensity = getXZIExtended(lib, pointer)
-    curArr = transformData(bufX, bufZ, bufIntensity)
+    curArr, minZ = transformData(bufX, bufZ, bufIntensity)
 
     # arr = np.hstack((arr, np.empty(1)))
     # arr[-1] = curArr
 
     fig1 = makeFig(curArr)
-    fig2 = makeFigInten(curArr, xRange0, xRange1, yRange0, yRange1)
+    fig2 = makeFigInten(curArr, xRange0, xRange1, yRange0, yRange1, minZ)
 
     # fig3D = updateFif3D(fig3D, arr, n_intervals)
 
@@ -154,7 +130,10 @@ def con(n_intervals):
     #     pickle.dump(np.array([list([0])], dtype=np.object_), file)
     global pointer, status
     pointer, status = connect(lib)
-    return 'Trying to connect to the scanner'
+    if status == 3:
+        return 'Scanner is connected'
+    else:
+        return 'Connection Error!'
 
 
 #start

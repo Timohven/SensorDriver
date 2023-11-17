@@ -121,6 +121,32 @@ def getXZIExtended(lib, pointer):
     return dataLength, bufX, bufZ, bufIntensity
 
 
+def transformData(bufX, bufZ, bufIntensity):
+    X = np.array(bufX)
+    Z = np.array(bufZ)
+    I = np.array(bufIntensity)
+
+    #arrX = X[np.logical_and(X != 0, Z != 0, I != 0)]
+    arrX = X[(X != 0) & (Z != 0) & (I != 0)]
+    # print(f'len X: {len(arrX)}, X: {arrX[0:10]}')
+    # arrZ = Z[np.logical_and(X != 0, Z != 0, I != 0)]
+    arrZ = Z[(X != 0) & (Z != 0) & (I != 0)]
+    # print(f'len Z: {len(arrZ)}, Z: {arrZ[0:10]}')
+    # arrI = I[np.logical_and(X != 0, Z != 0, I != 0)]
+    arrI = I[(X != 0) & (Z != 0) & (I != 0)]
+    # print(f'len I: {len(arrI)}, I: {arrI[0:10]}')
+    arr = np.array([arrX, arrZ, arrI])
+    # print(arr.shape)
+    # saveToFile(np.hstack([arrX, arrZ, arrI]).reshape(-1))
+    if arrX.size:
+        mask = (arrX>=-20).any() and (arrX<=20).any()
+        minZ = arrZ[mask].min()
+    else:
+        minZ = 0
+    # print(minZ)
+    return arr, minZ
+
+
 def saveToFile(arr):
     np.save('d', arr)
     # print(f'current len: {len(arr)}')
@@ -166,12 +192,6 @@ def makeFig(arr):
                                     marker=dict(size=2, color=arr[2, :], showscale=True)
                                     )
                     )
-    # fig = go.Figure(data=go.Scatter(x=list(bufX),
-    #                                 y=list(bufZ),
-    #                                 mode='markers',
-    #                                 marker=dict(size=3, color=list(bufIntensity), showscale=True)
-    #                                 )
-    #                 )
     fig.update_xaxes(showgrid=False,
                       zeroline=False,
                       range=[-60, 60],
@@ -186,7 +206,7 @@ def makeFig(arr):
 
     return fig
 
-def makeFigInten(arr, xRange0, xRange1, yRange0, yRange1):
+def makeFigInten(arr, xRange0, xRange1, yRange0, yRange1, minZ):
     fig = go.Figure(data=go.Scatter(x=arr[0, :],
                                     y=arr[1, :],
                                     name='geometry',
@@ -194,7 +214,13 @@ def makeFigInten(arr, xRange0, xRange1, yRange0, yRange1):
                                     marker=dict(size=2, color='white', showscale=False)
                                     )
                     )
-
+    fig.add_trace(go.Scatter(x=[-20, 20],
+                             y=[minZ, minZ],
+                             mode='lines',
+                             line_dash='dash',
+                             name=minZ
+                             )
+                  )
     # arr[2, :] = arr[2, :]/20
     # fig.add_trace(go.Scatter(x=arr[0, :],
     #                          y=arr[2, :],
@@ -207,12 +233,12 @@ def makeFigInten(arr, xRange0, xRange1, yRange0, yRange1):
     fig.update_xaxes(showgrid=False,
                      zeroline=False,
                      range=[xRange0, xRange1],
-                     # fixedrange=True,
+                     fixedrange=True,
                      )
     fig.update_yaxes(showgrid=False,
                      zeroline=False,
                      range=[yRange0, yRange1],
-                     # fixedrange=True,
+                     fixedrange=True,
                      )
     fig.update_layout(plot_bgcolor='black', paper_bgcolor='black')
 
